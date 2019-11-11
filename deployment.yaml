@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lazylibrarian
+  labels:
+    app: lazylibrarian
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lazylibrarian
+  template:
+    metadata:
+      labels:
+        app: lazylibrarian
+    spec:
+      initContainers:
+      - name: change-priveleges
+        image: busybox
+        command: ["/bin/sh"]
+        args: ["-c", "chown -R 2580:2580 /programdata"]
+        volumeMounts:
+        - name: programdata
+          mountPath: /programdata
+      - name: copy-config
+        image: busybox
+        command: ['/bin/sh', '-c', 'cp /config-src/*.ini /config/config.ini']
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: config-src
+          mountPath: /config-src
+      - name: init-priveleges-config
+        image: busybox
+        command:
+        - chown
+        - -R
+        - 2580:2580
+        - /config
+        volumeMounts:
+        - name: config
+          mountPath: /config
+      containers:
+      - name: lazylibrarian
+        image: jmeritt/lazylibrarian
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5299
+        volumeMounts:
+        - name: programdata
+          mountPath: /programdata
+        - name: ebooks
+          mountPath: /ebooks
+        - name: downloads
+          mountPath: /downloads
+        - name: config
+          mountPath: /config
+      volumes:
+      - name: programdata
+        emptyDir: {}
+      - name: config
+        emptyDir: {}
+      - name: ebooks
+        emptyDir: {}
+      - name: downloads
+        emptyDir: {}
+      - name: config-src
+        configMap: 
+          name: lazylibrarian-config
